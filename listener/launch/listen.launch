@@ -1,0 +1,11 @@
+<launch>
+
+<node pkg="listener"
+      name="listener"
+      type="listener"
+      output="screen"
+      args="/dev/ttyO0">
+      <remap from="chatter" to="/chatter"/>
+ </node>
+</launch>
+

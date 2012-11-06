@@ -4,15 +4,18 @@
 #include <queue>
 #include <cmath>
 #include <algorithm>
-#include <sstream>
+#include <coax_msgs/viconState.h>
 #include <ros/ros.h>
 #include <coax_msgs/CoaxState.h>
 #include <coax_msgs/CoaxConfigureControl.h>
-#include <std_msgs/String.h>
+#include <math.h>
 #include <com/sbapi.h>
 #include <CoaxVisionControl.h>
+#include <nav_msgs/Odometry.h>
 
-
+#ifndef PI
+#define PI 3.14159
+#endif
 
 CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
 :VisionFeedback(node), KF(node)
@@ -21,9 +24,9 @@ CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
 ,configure_comm(node.serviceClient<coax_msgs::CoaxConfigureComm>("configure_comm"))
 ,configure_control(node.serviceClient<coax_msgs::CoaxConfigureControl>("configure_control"))
 ,set_timeout(node.serviceClient<coax_msgs::CoaxSetTimeout>("set_timeout"))
-
-,coax_state_sub(node.subscribe("state",1, &CoaxVisionControl::StateCallback, this))
-,vicon_state_pub(node.advertise<std_msgs::String>("vicon_state",1))
+,vicon_state_sub(node.subscribe("coax_57/vicon/odom",1,&CoaxVisionControl::viconCallback,this))
+,coax_state_sub(node.subscribe("state",1, &CoaxVisionControl::StateCallback,this))
+,vicon_state_pub(node.advertise<coax_msgs::viconState>("vicon_state",1))
 ,raw_control_pub(node.advertise<coax_msgs::CoaxRawControl>("rawcontrol",1))
 ,vision_control_pub(node.advertise<coax_msgs::CoaxControl>("visioncontrol",1))
 ,LOW_POWER_DETECTED(false)
@@ -43,9 +46,9 @@ CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
 ,rotor_ready_count(-1)
 ,last_state_time(0.0)
 ,battery_voltage(12.22)
-
+,global_x(0),global_y(0),global_z(0),twist_z(0)
 ,rpy(0,0,0), accel(0,0,0), gyro(0,0,0), rpyt_rc(0,0,0,0), rpyt_rc_trim(0,0,0,0)
-
+//,eula_a(0),eula_b(0),eula_c(0)
 ,range_al(0.0)
 ,pos_z(0.0),vel_z(0.0)
 ,motor_up(0),motor_lo(0)
@@ -56,7 +59,8 @@ CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
 ,roll_des(0.0),roll_rate_des(0.0)
 ,pitch_des(0.0),pitch_rate_des(0.0)
 ,altitude_des(0.0)
-{
+{  
+//	vicon_state_sub=node.subscribe("coax_57/vicon/odom",1,&CoaxVisionControl::viconCallback,this);
 	set_nav_mode.push_back(node.advertiseService("set_nav_mode", &CoaxVisionControl::setNavMode, this));
 	set_control_mode.push_back(node.advertiseService("set_control_mode", &CoaxVisionControl::setControlMode, this));
 
@@ -67,7 +71,7 @@ CoaxVisionControl::~CoaxVisionControl() {}
 void CoaxVisionControl::loadParams(ros::NodeHandle &n) {
 	n.getParam("motorconst/const1",pm.motor_const1);
 	n.getParam("motorconst/const2",pm.motor_const2);
-	n.getParam("rollconst/const",pm.servo1_const);
+  n.getParam("rollconst/const",pm.servo1_const);
 	n.getParam("pitchconst/const",pm.servo2_const);
 	n.getParam("yawcoef/coef1",pm.yaw_coef1);
 	n.getParam("yawcoef/coef2",pm.yaw_coef2);
@@ -82,7 +86,7 @@ void CoaxVisionControl::loadParams(ros::NodeHandle &n) {
 	n.getParam("pitchcontrol/proportional",pm.kp_pitch);
 	n.getParam("pitchcontrol/differential",pm.kd_pitch);
 	n.getParam("altitude/base",pm.range_base);
-
+  n.getParam("altitudecontrol/k",pm.k);
 	n.getParam("altitudecontrol/proportional",pm.kp_altitude);
 	n.getParam("altitudecontrol/differential",pm.kd_altitude);
 	n.getParam("altitudecontrol/integration",pm.ki_altitude);
@@ -211,10 +215,26 @@ bool CoaxVisionControl::setControlMode(coax_vision::SetControlMode::Request &req
 // Subscriber
 //==============
 
+void CoaxVisionControl::viconCallback(const nav_msgs::Odometry::ConstPtr & vicon){
+
+	w=vicon->pose.pose.orientation.w;
+  x=vicon->pose.pose.orientation.x;
+  y=vicon->pose.pose.orientation.y;
+  z=vicon->pose.pose.orientation.z;
+  eula_a=atan2(2*(w*x+y*z),(1-2*(x*x+y*y)));
+  eula_b=asin(2*(w*y-z*x));
+  eula_c=atan2(2*(w*z+x*y),(1-2*(y*y+z*z)));
+	rpy << eula_a, eula_b, eula_c;
+  global_x=vicon->pose.pose.position.x;
+  global_y=vicon->pose.pose.position.y;
+  global_z=vicon->pose.pose.position.z;
+  twist_z=vicon->twist.twist.linear.z;
+}
+
 void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg) {
 	static int initTime = 200;
 	static int initCounter = 0;
-
+  
 	static Eigen::Vector3f init_acc(0,0,0);
 	static Eigen::Vector3f init_gyr(0,0,0);
 
@@ -222,7 +242,7 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
 	coax_nav_mode = msg->mode.navigation;
 
 	// Read from State
-	rpy << msg->roll, msg->pitch, msg->yaw; 
+//	rpy << msg->roll, msg->pitch, msg->yaw; 
 //	std::cout << "RPY: \n" << rpy << std::endl;
 	accel << msg->accel[0], msg->accel[1], msg->accel[2];
 	gyro << msg->gyro[0], msg->gyro[1], msg->gyro[2];
@@ -311,10 +331,16 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 	raw_control.motor2 = motor_lo;
 	raw_control.servo1 = servo_roll;
 	raw_control.servo2 = servo_pitch;
-  
-	raw_control_pub.publish(raw_control);
 
-  vicon_state<<"position_x:"<<global_x<<" "<<"position_z:"<<global_z<<"";
+	raw_control_pub.publish(raw_control);
+  vicon_state.x=global_x;
+	vicon_state.y=global_y;
+	vicon_state.z=global_z;
+	vicon_state.vz=twist_z;
+	vicon_state.roll=rpy[0];
+	vicon_state.pitch=rpy[1];
+	vicon_state.yaw=rpy[2];
+
 	vicon_state_pub.publish(vicon_state);
 	return 1;
 }
@@ -346,14 +372,15 @@ void CoaxVisionControl::stabilizationControl(void) {
 	Eigen::Vector2f state = getState();
 
 	altitude_des = rpyt_rc[3];
-	Daltitude =  altitude_des - state(0);
-	Daltitude_rate = -state(1);
+	Daltitude =  pm.k*altitude_des - global_z;
+	Daltitude_rate = -twist_z;
 	Daltitude_Int += Daltitude;
 	altitude_control = pm.kp_altitude * Daltitude + pm.kd_altitude * Daltitude_rate + pm.ki_altitude * Daltitude_Int;
-
+  //  altitude_control = 0.1*(rpyt_rc[3]-0.5);
 //	ROS_INFO("range %f Daltitude %f",range_al,Daltitude);
-	// yaw error and ctrl
-	yaw_des += pm.yaw_coef1*(rpyt_rc[2]+rpyt_rc_trim[2]);
+	// yaw error and ctrl	
+	yaw_des += pm.yaw_coef1*(rpyt_rc[2]);
+	//yaw_des += pm.yaw_coef1*(rpyt_rc[2]+rpyt_rc_trim[2]);
 //	ROS_INFO("desired yaw %f", yaw_des);
 	Dyaw = rpy[2] - yaw_des;
 	Dyaw_rate = gyro[2] - yaw_rate_des; 
@@ -371,10 +398,11 @@ void CoaxVisionControl::stabilizationControl(void) {
 	pitch_control = pm.kp_pitch * Dpitch + pm.kd_pitch * Dpitch_rate;
 
 	// desired motor & servo output
-	motor1_des = pm.motor_const1 - yaw_control + altitude_control;
-	motor2_des = pm.motor_const2 + yaw_control + altitude_control;
-	servo1_des = pm.servo1_const + pm.r_rc_coef * (rpyt_rc[0]+rpyt_rc_trim[0]) + roll_control;
-	servo2_des = pm.servo2_const - pm.p_rc_coef * (rpyt_rc[1]+rpyt_rc_trim[1]) + pitch_control;
+    motor1_des = pm.motor_const1 - yaw_control + altitude_control;
+	  motor2_des = pm.motor_const2 + yaw_control + altitude_control;
+  	servo1_des = pm.servo1_const + pm.r_rc_coef * (rpyt_rc[0]+rpyt_rc_trim[0]) + roll_control;
+  	servo2_des = pm.servo2_const - pm.p_rc_coef * (rpyt_rc[1]+rpyt_rc_trim[1]) + pitch_control;
+    
 }
 
 void CoaxVisionControl::controlPublisher(size_t rate) {
@@ -398,7 +426,8 @@ int main(int argc, char **argv) {
   ros::init(argc, argv, "CoaxVisionControl");
 	ros::NodeHandle nh("~");
 	CoaxVisionControl control(nh);
-
+  //control.vicon_state_sub=nh.subscribe("coax_57/vicon/odom",1,&CoaxVisionControl::viconCallback,&control); 
+  //control.coax_state_sub=nh.subscribe("state",1,&CoaxVisionControl::StateCallback,&control);
 	// Load Params
 	control.loadParams(nh);
 
@@ -415,7 +444,7 @@ int main(int argc, char **argv) {
 
 	int frequency = 100;
 	control.controlPublisher(frequency);
-
+ // control.coax_state_sub=nh.subscribe("state",1,&CoaxVisionControl::StateCallback,&control);
   ros::spin();
   return 0;
 }

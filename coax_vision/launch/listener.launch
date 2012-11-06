@@ -1,0 +1,12 @@
+<launch>
+
+    <node pkg="listener"
+          name="listener"
+          type="listener"
+	  output="screen"
+          args="/dev/ttO0">
+      <remap from="rawcontrol" to="/rawcontrol"/>
+      <remap from="state" to="/state"/>
+    </node>
+
+</launch>

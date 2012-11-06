@@ -9,9 +9,11 @@ src/coax_vision
 .DS_Store
 *~
 *.swp
-*.py
+*.pyc
+*.pyo
 *.asv
 *.o
+_*.py
 
 deploy
 communication/build-gumstix

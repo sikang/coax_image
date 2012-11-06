@@ -1,4 +1,4 @@
-mass: 0.333
+mass: 0.315
 
 inertia:
   Ixx: 1.837e-3
@@ -6,6 +6,8 @@ inertia:
   Izz: 2.7786e-4
 
 offset:
+  roll: -0.145
+  pitch: -0.024
   upper: 0.165
   lower: 0.103
 
@@ -36,15 +38,17 @@ speed_conversion:
     upper: 421.3723
     lower: 437.7036
   offset:
-    upper: -0.2555
-    lower: -2.9047
+    upper: 0.2555
+    lower: 2.9047
 
 phase_lag:
   slope:
     upper: -0.00206728
     lower: 0.00181741
   offset:
-    upper: 0.35
-    lower: 0.35
+    upper: 0.1764
+    lower: 0.0146
 
+drifting:
+   yaw: 0.4555
 max_swashplate_angle: 0.26
