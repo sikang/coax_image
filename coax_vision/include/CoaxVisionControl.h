@@ -89,6 +89,8 @@ struct param {
   double R;
 	double Q1;
 	double Q2;
+  double Q3;
+	double noise;
  };
 
 
@@ -253,18 +255,20 @@ private:
 	double sonar_z;
 
   double R;
-	double Q1, Q2;
+	double Q1, Q2, Q3;
 
 	double gravity_sum;
 	double gravity_n;
 	double grav;
-    
+
+  double nbz;
+	 
 	Eigen::Vector3f orien;
 	Eigen::Vector3f rate;
 	Eigen::Vector3f rate_sum;
-	Eigen::Vector2f state_z;
-	Eigen::Vector2f state_previous;
-	Eigen::Matrix2f state_p;
+	Eigen::Vector3f state_z;
+	Eigen::Vector3f state_previous;
+	Eigen::Matrix3f state_p;
 
 	coax_msgs::viconControl vicon_control;	
 	coax_msgs::viconState vicon_state;

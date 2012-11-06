@@ -26,3 +26,6 @@ float64 servo_pitch
 float64 R
 float64 Q1
 float64 Q2
+float64 Q3
+float64 nbz
+float64 bz

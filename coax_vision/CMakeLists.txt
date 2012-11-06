@@ -49,11 +49,11 @@ rosbuild_gensrv()
 #rosbuild_add_executable(extract_images src/extract_images.cc)
 rosbuild_add_executable(test_control 
 													src/test_control.cpp 
-    											src/VisionFeedback.cpp
+												  src/VisionFeedback.cpp
 													src/CoaxFilter.cpp)
 #rosbuild_add_executable(CoaxVisionControl 
 #													src/CoaxVisionControl.cpp 
 #													src/VisionFeedback.cpp
 #													src/CoaxFilter.cpp)
 #rosbuild_add_executable(coax_gumstix_control src/CoaxGumstixControl.cpp)
-rosbuild_add_executable(test_opencv src/test_opencv.cpp)
+#rosbuild_add_executable(test_opencv src/test_opencv.cpp)

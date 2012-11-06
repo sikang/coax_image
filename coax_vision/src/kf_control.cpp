@@ -61,17 +61,15 @@ CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
 ,altitude_des(0.0)
 ,stage(0),initial_pos(0),initial_orien(0),initial_vicon(0),yaw_init(0),initial_sonar(0),rate_yaw_sum(0.0),rate_yaw_n(0),des_pos_x(0.0),des_pos_y(0.0),des_pos_z(0.0)
 ,des_acc_z(0.0),des_pos_x_origin(0.0),des_pos_y_origin(0.0)
-,R(0.0009),Q1(0.0001),Q2(0.0009),Q3(0.0)
-,gravity_sum(0.0),gravity_n(0),nbz(0.0)
+,R(0.0009),Q1(0.0001),Q2(0.0009)
+,gravity_sum(0.0),gravity_n(0)
 {  
 	set_nav_mode.push_back(node.advertiseService("set_nav_mode", &CoaxVisionControl::setNavMode, this));
 	set_control_mode.push_back(node.advertiseService("set_control_mode", &CoaxVisionControl::setControlMode, this));
   state_z<<0.039,
-					 0,
 					 0;
-	state_p<< 0.1,0,0,
-	          0,0.1,0,
-						0,0,0.1;
+	state_p<< 0.0004,0,
+	          0,0.001;
   Rbw<<1,0,0,
 	     0,1,0,
 			 0,0,1;
@@ -139,8 +137,6 @@ void CoaxVisionControl::loadParams(ros::NodeHandle &n) {
 	n.getParam("filter/R",pm.R);
 	n.getParam("filter/Q1",pm.Q1);
   n.getParam("filter/Q2",pm.Q2);
-  n.getParam("filter/Q3",pm.Q3);
-	n.getParam("filter/noise",pm.noise);
 }
 
 //===================
@@ -341,7 +337,6 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
 		R = pm.R;
 		Q1 = pm.Q1;
 		Q2 = pm.Q2;	
-    Q3 = pm.Q3;
 	}
 	rate[2] = (orien[2]-yaw_previous)/dt;
   rate[1] = gyro[1];
@@ -468,9 +463,7 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 	vicon_state.R = R;
 	vicon_state.Q1 = Q1;
 	vicon_state.Q2 = Q2;
-	vicon_state.Q3 = Q3;
-	vicon_state.bz = state_z[2];
-  vicon_state.nbz = nbz;
+
 	vicon_state_pub.publish(vicon_state);
 	
 	return 1;
@@ -591,36 +584,27 @@ void CoaxVisionControl::stabilizationControl(void) {
 	double altitude_control,Daltitude, Daltitude_rate,Dx,Dy,Dx_rate,Dy_rate,C;
 	double Fdes_x,Fdes_y,Fdes_z,Mdes_z,Tup,Tlo,Wdes_up,Wdes_lo;
 	static double Daltitude_Int = 0,Dx_int = 0,Dy_int = 0,Dyaw_int = 0;
-  Eigen::Matrix3f I;
-	Eigen::Matrix3f A,AT;
-	Eigen::MatrixXf H(1,3);
-  Eigen::MatrixXf HT(3,1);
-  Eigen::Matrix3f Q;
-  Eigen::MatrixXf K(3,1);
-  Eigen::Vector3f B;
-  
-	nbz = pm.noise*(drand48()-0.5);
-		
-	B<<dt*dt*(accel[2]-gravity),
-	dt*(accel[2]-gravity),
-	dt*nbz;
-
- 	I=Eigen::Matrix3f::Identity();
-	H<<1,0,0;
+  Eigen::Matrix2f I;
+	Eigen::Matrix2f A,AT;
+	Eigen::MatrixXf H(1,2);
+  Eigen::MatrixXf HT(2,1);
+  Eigen::Matrix2f Q;
+  Eigen::MatrixXf K(2,1);
+  Eigen::Vector2f B;
+	B<<0,
+	dt;
+ 	I=Eigen::Matrix2f::Identity();
+	H<<1,0;
   HT=H.transpose();
-
-  A<<1,dt,-0.5*dt*dt,
-	   0,1,-dt,
-		 0,0,1;
+  A<<1,dt,
+	   0,1;
 	
   AT = A.transpose();
-  
-	Q<<Q1,0,0,
-	   0,Q2,0,
-		 0,0,Q3;
+  Q<<Q1,0,
+	   0,Q2;
 
   state_previous = state_z;
-  state_z = A*state_z+B;
+  state_z = A*state_z+B*(accel[2]-gravity);
   state_p = A*state_p*AT+Q;
 
   double S = state_p(0,0)+R;
@@ -776,7 +760,7 @@ int main(int argc, char **argv) {
   control.fout.open("data.txt");
 	ros::Duration(1.5).sleep(); 
 
-	control.configureComm(100, SBS_MODES | SBS_BATTERY | SBS_GYRO | SBS_ACCEL | SBS_CHANNELS | SBS_RPY | SBS_ALTITUDE_ALL);
+	control.configureComm(100, SBS_MODES | SBS_BATTERY | SBS_GYRO | SBS_ACCEL | SBS_CHANNELS | SBS_RPY | SBS_O_ALTITUDE | SBS_IMU_ALL);
 	// control.setTimeout(500, 5000);
 
 	control.configureControl(SB_CTRL_MANUAL, SB_CTRL_MANUAL, SB_CTRL_MANUAL, SB_CTRL_MANUAL);
