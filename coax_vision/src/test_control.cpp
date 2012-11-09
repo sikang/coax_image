@@ -72,6 +72,9 @@ CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
 	state_p<< 0.1,0,0,
 	          0,0.1,0,
 						0,0,0.1;
+  orien<<0,
+	       0,
+				 0;
   Rbw<<1,0,0,
 	     0,1,0,
 			 0,0,1;
@@ -291,6 +294,7 @@ void CoaxVisionControl::viconCallback(const nav_msgs::Odometry::ConstPtr & vicon
   eula_b=asin(2*(w*y-z*x));
   eula_c=atan2(2*(w*z+x*y),(1-2*(y*y+z*z)));
 	rpy << eula_a, eula_b, eula_c;
+
   Rwb(0,0)=cos(eula_c)*cos(eula_b);
 	Rwb(0,1)=cos(eula_c)*sin(eula_b)*sin(eula_a)-sin(eula_c)*cos(eula_a);
 	Rwb(0,2)=cos(eula_c)*sin(eula_b)*cos(eula_a)+sin(eula_c)*sin(eula_a);
@@ -330,9 +334,10 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
 	accel << msg->accel[0], -msg->accel[1], -msg->accel[2];
 	gyro << msg->gyro[0],-msg->gyro[1], -msg->gyro[2];
 	rpyt_rc << msg->rcChannel[4], msg->rcChannel[6], msg->rcChannel[2], msg->rcChannel[0];
-  orien[0] = msg->roll;
-  orien[1] = -msg->pitch;
+  orien[0] = msg->roll-0.01;
+  orien[1] = -msg->pitch+0.02;
 	orien[2] = -msg->yaw;
+  
 
 	if(initial_orien == 0){
 		yaw_previous = orien[2];
@@ -343,19 +348,40 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
 		Q2 = pm.Q2;	
     Q3 = pm.Q3;
 	}
-	rate[2] = (orien[2]-yaw_previous)/dt;
+  
+	orien[2] = orien[2]-initial_yaw;
+  if(orien[2]>PI){
+		orien[2]=orien[2]-2*PI;
+	}
+	else if(orien[2]<-PI){
+		orien[2]=orien[2]+2*PI;
+	}
+/*
+  Rwb(0,0)=cos(orien[2])*cos(orien[1]);
+	Rwb(0,1)=cos(orien[2])*sin(orien[1])*sin(orien[0])-sin(orien[2])*cos(orien[0]);
+	Rwb(0,2)=cos(orien[2])*sin(orien[1])*cos(orien[0])+sin(orien[2])*sin(orien[0]);
+	Rwb(1,0)=sin(orien[2])*cos(orien[1]);
+	Rwb(1,1)=sin(orien[2])*sin(orien[1])*sin(orien[0])+cos(orien[2])*cos(orien[0]);
+	Rwb(1,2)=sin(orien[2])*sin(orien[1])*cos(orien[0])-cos(orien[2])*sin(orien[0]);
+	Rwb(2,0)=-sin(orien[1]);
+	Rwb(2,1)=cos(orien[1])*sin(orien[0]);
+	Rwb(2,2)=cos(orien[1])*cos(orien[0]);
+	Rbw = Rwb.transpose();
+	*/
+
+	rate[2] = gyro[2];
   rate[1] = gyro[1];
 	rate[0] = gyro[0];
-  sonar_z = msg->zfiltered;
+  //rate_b = rate;
+  //rate = Rwb*rate;
+
+	sonar_z = msg->zfiltered;
 
  if (sonar_z> 6)
  {
 	 sonar_z = 0.04;
  }
  
- if(sonar_z>0.2){
-	 //Q2 = pm.Q2;
- }
 	accel = Rwb*accel;
   grav = accel[2];
   
@@ -443,10 +469,14 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 	vicon_state.x=global_x;
 	vicon_state.y=global_y;
 	vicon_state.z=global_z;
+	
 	vicon_state.vz=twist_z;
 	vicon_state.roll=eula_a;
 	vicon_state.pitch=eula_b;
 	vicon_state.yaw=eula_c;
+	vicon_state.droll = twist_ang_b[0];
+	vicon_state.dpitch = twist_ang_b[1];
+	vicon_state.dyaw = twist_ang_b[2];
 	vicon_state.sonar = sonar_z;
 	vicon_state.state_z = state_z[0];
 	vicon_state.vel_z = state_z[1];
@@ -454,13 +484,12 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
   vicon_state.dt = dt;
 	vicon_state.des_z = des_pos_z;
   vicon_state.des_vel_z = des_vel_z;
-  vicon_state.des_acc_z = des_acc_z;
 	vicon_state.orien_roll = orien[0];
 	vicon_state.orien_pitch = orien[1];
 	vicon_state.orien_yaw = orien[2];
 	vicon_state.rate_roll = rate[0];
 	vicon_state.rate_pitch = rate[1];
-	vicon_state.rate_yaw = rate_yaw;
+	vicon_state.rate_yaw = rate[2];
 	vicon_state.motor_up = motor_up;
 	vicon_state.motor_lo = motor_lo;
 	vicon_state.servo_roll = servo_roll;
@@ -601,7 +630,7 @@ void CoaxVisionControl::stabilizationControl(void) {
   
 	nbz = pm.noise*(drand48()-0.5);
 		
-	B<<dt*dt*(accel[2]-gravity),
+	B<<0.5*dt*dt*(accel[2]-gravity),
 	dt*(accel[2]-gravity),
 	dt*nbz;
 
@@ -663,7 +692,7 @@ void CoaxVisionControl::stabilizationControl(void) {
 	Dyaw = eula_c-des_yaw;
 	Dyaw_int +=Dyaw;
 	yaw_control = -pm.kp_yaw * Dyaw - pm.kd_yaw * Dyaw_rate-pm.ki_yaw*Dyaw_int; 
-  Mdes_z = yaw_control-twist_ang_b[0]*twist_ang_b[1]*(pm.Ixx-pm.Iyy);
+  Mdes_z = yaw_control;//-twist_ang_b[0]*twist_ang_b[1]*(pm.Ixx-pm.Iyy);
 	  
 	C = pm.kT_up*pm.kM_lo+pm.kT_lo*pm.kM_up;
   
@@ -776,7 +805,7 @@ int main(int argc, char **argv) {
   control.fout.open("data.txt");
 	ros::Duration(1.5).sleep(); 
 
-	control.configureComm(100, SBS_MODES | SBS_BATTERY | SBS_GYRO | SBS_ACCEL | SBS_CHANNELS | SBS_RPY | SBS_ALTITUDE_ALL);
+	control.configureComm(100, SBS_MODES | SBS_BATTERY | SBS_GYRO | SBS_ACCEL | SBS_CHANNELS | SBS_RPY | SBS_ALTITUDE_ALL |SBS_ALL|SBS_RANGES_ALL);
 	// control.setTimeout(500, 5000);
 
 	control.configureControl(SB_CTRL_MANUAL, SB_CTRL_MANUAL, SB_CTRL_MANUAL, SB_CTRL_MANUAL);

@@ -4,6 +4,9 @@ float64 z
 float64 roll
 float64 pitch
 float64 yaw
+float64 droll
+float64 dpitch
+float64 dyaw
 float64 sonar
 float64 state_z
 float64 vel_z
@@ -11,7 +14,6 @@ float64 vz
 float64 accel_z
 float64 des_z
 float64 des_vel_z
-float64 des_acc_z
 float64 dt
 float64 orien_roll
 float64 orien_pitch

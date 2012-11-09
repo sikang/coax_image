@@ -15,12 +15,12 @@ altitudecontrol:
  kd_pq: 0.06
  k_roll: 0.45
  k_pitch: 0.45
- proportional: 1.9
- differential: 1.0
- integration: 0.0
+ proportional: 1.8
+ differential: 1.3
+ integration: 0.005
 
 desired:
- des_pos_z: 1
+ des_pos_z: 0.8
  des_vel_z: 0.1
  des_acc_z: 0.1
  x_distance: 2.0
@@ -64,7 +64,7 @@ filter:
   R: 0.0009
   Q1: 0.0004
   Q2: 0.0025
-  Q3: 0.16
+  Q3: 0.09
   noise: 0.02
 yawcoef:
   coef1: 0.0001
