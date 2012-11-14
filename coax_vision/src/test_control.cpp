@@ -59,20 +59,24 @@ CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
 ,roll_des(0.0),roll_rate_des(0.0)
 ,pitch_des(0.0),pitch_rate_des(0.0)
 ,altitude_des(0.0)
-,stage(0),initial_pos(0),initial_orien(0),initial_vicon(0),yaw_init(0),initial_sonar(0),rate_yaw_sum(0.0),rate_yaw_n(0),des_pos_x(0.0),des_pos_y(0.0),des_pos_z(0.0)
+,stage(0),initial_pos(0),initial_orien(0),initial_vicon(0),yaw_init(0),initial_sonar(0),rate_yaw_sum(0.0),rate_yaw_n(0),des_pos_x(0.0),des_pos_y(0.0),des_pos_z(0.04)
 ,des_acc_z(0.0),des_pos_x_origin(0.0),des_pos_y_origin(0.0)
-,R(0.0009),Q1(0.0001),Q2(0.0009),Q3(0.0)
-,gravity_sum(0.0),gravity_n(0),nbz(0.0)
+,gravity_sum(0.0),gravity_n(0),nbz(0.0),y1(0.0),y2(0.0)
 {  
 	set_nav_mode.push_back(node.advertiseService("set_nav_mode", &CoaxVisionControl::setNavMode, this));
 	set_control_mode.push_back(node.advertiseService("set_control_mode", &CoaxVisionControl::setControlMode, this));
-  state_z<<0.039,
-					 0,
-					 0;
-	state_p<< 0.1,0,0,
-	          0,0.1,0,
-						0,0,0.1;
-  orien<<0,
+  state_y << 0,
+	           0,
+						 0;
+  state_z << 0.039,
+	          0,
+						0;
+  P_y<<0.1,0,0,
+	     0,0.1,0,
+			 0,0,0.1;
+  P_z = P_y;
+
+	orien<<0,
 	       0,
 				 0;
   Rbw<<1,0,0,
@@ -139,11 +143,17 @@ void CoaxVisionControl::loadParams(ros::NodeHandle &n) {
   n.getParam("inertia/Ixx",pm.Ixx);
 	n.getParam("inertia/Iyy",pm.Iyy);
   n.getParam("drifting/yaw",pm.drifting);
-	n.getParam("filter/R",pm.R);
+	n.getParam("filter/R1",pm.R1);
+	n.getParam("filter/R2",pm.R2);
 	n.getParam("filter/Q1",pm.Q1);
   n.getParam("filter/Q2",pm.Q2);
   n.getParam("filter/Q3",pm.Q3);
-	n.getParam("filter/noise",pm.noise);
+	n.getParam("filter/Q4",pm.Q4);
+  n.getParam("filter/Q5",pm.Q5);
+  n.getParam("filter/Q6",pm.Q6);
+	n.getParam("filter/noise_y",pm.noise_y);
+	n.getParam("filter/noise_z",pm.noise_z);
+  n.getParam("center/z",pm.center_z);
 }
 
 //===================
@@ -334,7 +344,16 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
 	accel << msg->accel[0], -msg->accel[1], -msg->accel[2];
 	gyro << msg->gyro[0],-msg->gyro[1], -msg->gyro[2];
 	rpyt_rc << msg->rcChannel[4], msg->rcChannel[6], msg->rcChannel[2], msg->rcChannel[0];
-  orien[0] = msg->roll-0.01;
+  hrange << msg->hranges[0], msg->hranges[1], msg->hranges[2];
+if(hrange[2]<3.3){  
+	y2 = (-6.3198*hrange[2]*hrange[2]*hrange[2]+48.846*hrange[2]*hrange[2]-139.87*hrange[2]+172.48)*0.01;
+	y1 = 0;
+}
+else if(hrange[2]>=3.3){
+	y2 = 0;
+	y1 = 0;
+}
+	orien[0] = msg->roll-0.01;
   orien[1] = -msg->pitch+0.02;
 	orien[2] = -msg->yaw;
   
@@ -343,10 +362,25 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
 		yaw_previous = orien[2];
     initial_yaw = orien[2];
 		initial_orien += 1;	
-		R = pm.R;
+		R1 = pm.R1;
+		R2 = pm.R2;
+
 		Q1 = pm.Q1;
 		Q2 = pm.Q2;	
     Q3 = pm.Q3;
+    Q4 = pm.Q4;
+		Q5 = pm.Q5;
+		Q6 = pm.Q6;
+
+		Qz<<Q1,0,0,
+			0,Q2,0,
+			0,0,Q3;
+		Qy<<Q4,0,0,
+			0,Q5,0,
+			0,0,Q6;
+
+					 
+
 	}
   
 	orien[2] = orien[2]-initial_yaw;
@@ -373,7 +407,7 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
   rate[1] = gyro[1];
 	rate[0] = gyro[0];
   //rate_b = rate;
-  //rate = Rwb*rate;
+  rate = Rwb*rate;
 
 	sonar_z = msg->zfiltered;
 
@@ -469,7 +503,7 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 	vicon_state.x=global_x;
 	vicon_state.y=global_y;
 	vicon_state.z=global_z;
-	
+	vicon_state.vy=twist_y;
 	vicon_state.vz=twist_z;
 	vicon_state.roll=eula_a;
 	vicon_state.pitch=eula_b;
@@ -478,12 +512,12 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 	vicon_state.dpitch = twist_ang_b[1];
 	vicon_state.dyaw = twist_ang_b[2];
 	vicon_state.sonar = sonar_z;
+	vicon_state.state_y = state_y[0];
 	vicon_state.state_z = state_z[0];
+	vicon_state.vel_y = state_y[1];
 	vicon_state.vel_z = state_z[1];
+	vicon_state.accel_y = accel[1];
 	vicon_state.accel_z = accel(2)-gravity;
-  vicon_state.dt = dt;
-	vicon_state.des_z = des_pos_z;
-  vicon_state.des_vel_z = des_vel_z;
 	vicon_state.orien_roll = orien[0];
 	vicon_state.orien_pitch = orien[1];
 	vicon_state.orien_yaw = orien[2];
@@ -494,12 +528,13 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 	vicon_state.motor_lo = motor_lo;
 	vicon_state.servo_roll = servo_roll;
 	vicon_state.servo_pitch = servo_pitch;
-	vicon_state.R = R;
-	vicon_state.Q1 = Q1;
-	vicon_state.Q2 = Q2;
-	vicon_state.Q3 = Q3;
 	vicon_state.bz = state_z[2];
-  vicon_state.nbz = nbz;
+	vicon_state.by = state_y[2];
+	vicon_state.y1 = y1;
+	vicon_state.y2 = y2;
+	vicon_state.hrange_1 = hrange[1];
+	vicon_state.hrange_2 = hrange[2];
+	
 	vicon_state_pub.publish(vicon_state);
 	
 	return 1;
@@ -511,7 +546,7 @@ bool CoaxVisionControl::rotorReady(void) {
 	if (rotor_ready_count <= 300) 
 		rotor_ready_count++;
 		if(sonar_z-0.2 >0&&initial_sonar==0){
-			ROS_WARN("Sonar is bad...");
+		
 			initial_sonar = 1;
 		}
 	if (rotor_ready_count < 150) {
@@ -540,7 +575,7 @@ void CoaxVisionControl::set_hover(void){
 		des_pos_y = global_y;
     des_pos_x_origin = des_pos_x;
 		des_pos_y_origin = des_pos_y;
-		des_pos_z = 0.0;
+		des_pos_z = pm.center_z;
 	  des_vel_x = 0;
 		des_vel_y = 0;
 		des_vel_z = 0;
@@ -608,7 +643,7 @@ void CoaxVisionControl::set_landing(void){
 	des_pos_z = des_pos_z+dt*des_vel_z;
 }
 
-else if( des_pos_z<0.0){
+else if( des_pos_z<=0){
 	des_pos_z = 0;
 	des_vel_z = 0;
 	des_acc_z = 0;
@@ -624,18 +659,26 @@ void CoaxVisionControl::stabilizationControl(void) {
 	Eigen::Matrix3f A,AT;
 	Eigen::MatrixXf H(1,3);
   Eigen::MatrixXf HT(3,1);
-  Eigen::Matrix3f Q;
-  Eigen::MatrixXf K(3,1);
-  Eigen::Vector3f B;
-  
-	nbz = pm.noise*(drand48()-0.5);
+	Eigen::Vector3f Ky,Kz;
+  Eigen::Vector3f By,Bz;
+  double Sy,Sz;
+  double Yy,Yz;
+	nby = pm.noise_y*(drand48()-0.5);
+	nbz = pm.noise_z*(drand48()-0.5);
 		
-	B<<0.5*dt*dt*(accel[2]-gravity),
-	dt*(accel[2]-gravity),
-	dt*nbz;
+	Bz<<0.5*dt*dt*(accel[2]-gravity),
+	   dt*(accel[2]-gravity),
+     dt*nbz;
+
+	By<<0.5*dt*dt*accel[1],
+	   dt*accel[1],
+	   dt*nby;
+
 
  	I=Eigen::Matrix3f::Identity();
+
 	H<<1,0,0;
+
   HT=H.transpose();
 
   A<<1,dt,-0.5*dt*dt,
@@ -643,26 +686,34 @@ void CoaxVisionControl::stabilizationControl(void) {
 		 0,0,1;
 	
   AT = A.transpose();
-  
-	Q<<Q1,0,0,
-	   0,Q2,0,
-		 0,0,Q3;
-
-  state_previous = state_z;
-  state_z = A*state_z+B;
-  state_p = A*state_p*AT+Q;
-
-  double S = state_p(0,0)+R;
-	K = state_p*HT/S;
-	double Y = sonar_z - state_z[0];
-	state_z = state_z+K*Y;
-	state_p = (I-K*H)*state_p;
- 
+ if(initial_orien == 1){
+   
+  state_y = A*state_y+By;
+  state_z = A*state_z+Bz;
+	P_y = A*P_y*AT+Qy;
+  P_z = A*P_z*AT+Qz;
+  Sy = P_y(0,0)+R1;
+  Sz = P_z(0,0)+R2;
+	Ky = P_y*HT/Sy;
+ 	Kz = P_z*HT/Sz;
+  Yz = sonar_z - state_z[0],
+  Yy = y2-state_y[0];
+	state_y = state_y+Ky*Yy;
+	state_z = state_z+Kz*Yz;
+	P_y = (I-Ky*H)*P_y;
+	P_z = (I-Kz*H)*P_z;
+ }
   //std::cout << state_p(0,0)<<" "<<state_p(1,1) << std::endl;
 	altitude_des = des_pos_z;
 	Daltitude =  state_z[0]-altitude_des;
 	Daltitude_rate = state_z[1]-des_vel_z;
+	
+	if (state_z[0]<0.1&&stage==1){
+				Daltitude_Int = 0;
+	}
+	else if(state_z[0]>0.1||stage!=1){ 
 	Daltitude_Int += Daltitude;
+	}
 	altitude_control = -pm.kp_altitude * Daltitude - pm.kd_altitude * Daltitude_rate - pm.ki_altitude * Daltitude_Int;
 	Dx = global_x-des_pos_x;
   
@@ -728,7 +779,7 @@ void CoaxVisionControl::stabilizationControl(void) {
 	zT_lo = Rbw*zT_lo;
 
   lag_lo=pm.mL_lo*u_lo+pm.bL_lo;
-  
+ /* 
 	Rp(0,0)=cos(lag_lo);
 	Rp(0,1)=-sin(lag_lo);
 	Rp(0,2)=0;
@@ -740,7 +791,7 @@ void CoaxVisionControl::stabilizationControl(void) {
 	Rp(2,2)=1;
  
   zT_lo = Rp*zT_lo;
-  
+ */ 
 	z_sp[2]=cos(pm.L_lo*acos(zT_lo[2]));
 	if (z_sp[2]<cos(pm.theta_max)){
 		z_sp[2]=pm.theta_max;
@@ -764,7 +815,9 @@ void CoaxVisionControl::stabilizationControl(void) {
 		motor2_des = u_lo;
 
     servo1_des = pm.k_roll*u_roll+pm.offset_roll+ pm.r_rc_coef * (rpyt_rc[0]+rpyt_rc_trim[0]);
-		servo2_des = pm.k_pitch*u_pitch+pm.offset_pitch - pm.p_rc_coef * (rpyt_rc[1]+rpyt_rc_trim[1]);
+		servo2_des = pm.k_pitch*u_pitch+pm.offset_pitch+ pm.p_rc_coef * (rpyt_rc[1]+rpyt_rc_trim[1]);
+
+	//	std::cout<<"roll: "<<servo1_des<<" pitch: "<<servo2_des<<std::endl;
 	if(battery_voltage<=10.8){
 		ROS_WARN("low battery");
 	}

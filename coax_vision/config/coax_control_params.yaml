@@ -15,12 +15,12 @@ altitudecontrol:
  kd_pq: 0.06
  k_roll: 0.45
  k_pitch: 0.45
- proportional: 1.8
- differential: 1.3
- integration: 0.005
+ proportional: 2.0
+ differential: 1.0
+ integration: 0.01
 
 desired:
- des_pos_z: 0.8
+ des_pos_z: 1.0
  des_vel_z: 0.1
  des_acc_z: 0.1
  x_distance: 2.0
@@ -61,11 +61,18 @@ throttlecoef:
   coef2: 0.52
 
 filter:
-  R: 0.0009
-  Q1: 0.0004
-  Q2: 0.0025
-  Q3: 0.09
-  noise: 0.02
+ R1: 0.0009
+ R2: 0.000025
+ Q1: 0.0004
+ Q2: 0.0025
+ Q3: 0.09
+ Q4: 0.0004
+ Q5: 0.0025
+ Q6: 0.09
+ noise_y: 0.025
+ noise_z: 0.02
+center:
+  z: 0.04
 yawcoef:
   coef1: 0.0001
   coef2: 0.0001
