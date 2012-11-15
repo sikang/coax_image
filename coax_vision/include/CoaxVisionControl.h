@@ -128,7 +128,6 @@ class CoaxVisionControl : public VisionFeedback, public KF
 	bool setRawControl(double motor_up,double motor_lo, double servo_ro,double servo_pi);
  // ros::Subscriber vicon_state_sub;
   //ros::Subscriber coax_state_sub;
- std::ofstream fout; 
 private:
 	ros::ServiceClient reach_nav_state;
 	ros::ServiceClient configure_comm;
@@ -206,10 +205,7 @@ private:
 	double pitch_rate_des;
 	double altitude_des;
   
-	double w;
-	double x;
-	double y;
-	double z;
+	double q_w,q_x,q_y,q_z;
 	double global_x;
 	double global_y;
 	double global_z;
@@ -233,16 +229,20 @@ private:
 	double u_pitch;
   int stage;
 	int initial_pos;
+	int initial_position;
   int initial_orien;
 	int initial_vicon;
 	double initial_time;
+	double initial_x,initial_y,initial_z;
+	double initial_hrange;
+	double initial_roll;
+	double initial_pitch;
 	double initial_yaw;
   double initial_eula_c;
   int initial_sonar;
   double rate_yaw;
   double rate_yaw_sum;
 	int rate_yaw_n;
-  double yaw_previous;
   double yaw_init;
 	double des_pos_x;
 	double des_pos_y;

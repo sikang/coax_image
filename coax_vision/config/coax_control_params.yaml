@@ -20,7 +20,7 @@ altitudecontrol:
  integration: 0.01
 
 desired:
- des_pos_z: 1.0
+ des_pos_z: 0.6
  des_vel_z: 0.1
  des_acc_z: 0.1
  x_distance: 2.0
