@@ -177,7 +177,7 @@ private:
 	Eigen::Vector4f rpyt_rc;
 	Eigen::Vector4f rpyt_rc_trim;
   Eigen::Vector3f twist_ang;
-	Eigen::Vector3f twist_ang_b;
+	Eigen::Vector3f twist_ang_w;
   double range_al;
 	double gravity;
 
