@@ -230,7 +230,7 @@ private:
   int stage;
 	int initial_pos;
 	int initial_position;
-  int initial_orien;
+  int initial_orien,flag_hrange;
 	int initial_vicon;
 	double initial_time;
 	double initial_x,initial_y,initial_z;
@@ -263,8 +263,8 @@ private:
   double R1,R2;
 	double Q1, Q2, Q3, Q4, Q5, Q6;
 
-	double gravity_sum;
-	double gravity_n;
+	double hrange_sum,gravity_sum;
+	double hrange_n,gravity_n;
 	double grav;
   
 	double nby;
@@ -278,7 +278,7 @@ private:
 	Eigen::Matrix3f P_y,P_z;
 	Eigen::Matrix3f Qy;
 	Eigen::Matrix3f Qz;
-  double y1,y2;
+  double y1,y2,dis_y;
 	Eigen::Vector3f hrange;
 
 	coax_msgs::viconControl vicon_control;	

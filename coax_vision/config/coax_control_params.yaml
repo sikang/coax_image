@@ -8,10 +8,10 @@ altitude:
   base: 0.049
 
 altitudecontrol:
- xyproportional: 2.5
- xydifferential: 1.0
+ xyproportional: 1.5
+ xydifferential: 1.2
  xyintegration: 0.0
- kp_pq: 0.6
+ kp_pq: 0.0
  kd_pq: 0.06
  k_roll: 0.45
  k_pitch: 0.45
@@ -61,7 +61,7 @@ throttlecoef:
   coef2: 0.52
 
 filter:
- R1: 0.0001
+ R1: 0.04
  R2: 0.000025
  Q1: 0.0004
  Q2: 0.0025
@@ -69,7 +69,7 @@ filter:
  Q4: 0.0004
  Q5: 0.0025
  Q6: 0.09
- noise_y: 0.025
+ noise_y: 0.02
  noise_z: 0.02
 center:
   z: 0.04
