@@ -8,10 +8,10 @@ altitude:
   base: 0.049
 
 altitudecontrol:
- xyproportional: 1.5
+ xyproportional: 1.8
  xydifferential: 1.2
  xyintegration: 0.0
- kp_pq: 0.0
+ kp_pq: 0.1
  kd_pq: 0.06
  k_roll: 0.45
  k_pitch: 0.45

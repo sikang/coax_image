@@ -395,7 +395,7 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
 	}
 
 if(hrange[2]<2.3){  
-	y2 = cos(orien[0])*(-0.3*hrange[2]*hrange[2]*hrange[2]+1.4638*hrange[2]*hrange[2]-2.5511*hrange[2]+1.8725)-initial_hrange;
+	y2 = cos(eula_c)*cos(orien[0])*(-0.3*hrange[2]*hrange[2]*hrange[2]+1.4638*hrange[2]*hrange[2]-2.5511*hrange[2]+1.8725)-initial_hrange;
 	y1 = 0;
 }
 else if(hrange[2]>=2.3){
@@ -432,7 +432,6 @@ else if(hrange[2]>=2.3){
 	rate[2] = gyro[2];
   rate[1] = gyro[1];
 	rate[0] = gyro[0];
-  //rate_b = rate;
   rate = Rwb*rate;
 
 	sonar_z = msg->zfiltered;
@@ -518,7 +517,12 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 	raw_control.motor2 = motor_lo;
 	raw_control.servo1 = servo_roll;
 	raw_control.servo2 = servo_pitch;
-
+if(stage == 3&&state_z[0]<0.1){
+	raw_control.motor1 = 0;
+	raw_control.motor2 = 0;
+	raw_control.servo1 = 0;
+	raw_control.servo2 = 0;
+}
 	raw_control_pub.publish(raw_control);
 	previous = current;
   current = ros::Time::now().toSec();
@@ -547,9 +551,9 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 	vicon_state.orien_roll = orien[0];
 	vicon_state.orien_pitch = orien[1];
 	vicon_state.orien_yaw = orien[2];
-	vicon_state.rate_roll = gyro[0];
-	vicon_state.rate_pitch = gyro[1];
-	vicon_state.rate_yaw = gyro[2];
+	vicon_state.rate_roll = rate[0];
+	vicon_state.rate_pitch = rate[1];
+	vicon_state.rate_yaw = rate[2];
 	vicon_state.bz = state_z[2];
 	vicon_state.by = state_y[2];
 	vicon_state.y1 = y1;
@@ -579,7 +583,7 @@ bool CoaxVisionControl::rotorReady(void) {
 		gravity_n += 1;
 		gravity_sum +=grav;
 		if(hrange[2]<2.3){  
-			y2 = cos(orien[0])*(-0.3*hrange[2]*hrange[2]*hrange[2]+1.4638*hrange[2]*hrange[2]-2.5511*hrange[2]+1.8725)-initial_hrange;
+			y2 = cos(orien[0])*cos(eula_c)*(-0.3*hrange[2]*hrange[2]*hrange[2]+1.4638*hrange[2]*hrange[2]-2.5511*hrange[2]+1.8725)-initial_hrange;
 			y1 = 0;
 		}
 		else if(hrange[2]>=2.3){
@@ -613,7 +617,7 @@ void CoaxVisionControl::set_hover(void){
 
 	if(initial_pos==0)
 	{
-		des_pos_x = 0;
+		des_pos_x = global_x;
 		des_pos_y = 0;
 		des_pos_z = pm.center_z;
 	  des_vel_x = 0;
@@ -737,15 +741,15 @@ void CoaxVisionControl::stabilizationControl(void) {
 
 	state_y = A*state_y+By;
 	P_y = A*P_y*AT+Qy;
-	if(state_z[0]>0.1){
+
 		Sy = P_y(0,0)+R1;
 		Ky = P_y*HT/Sy;
 		Yy = y2 - state_y[0];
 		state_y = state_y+Ky*Yy;
 		P_y = (I-Ky*H)*P_y;
-	}
+	
 
-	dis_y = state_y[0]/cos(orien[0]);
+	dis_y = y2;
  
  }
  
@@ -784,8 +788,8 @@ void CoaxVisionControl::stabilizationControl(void) {
 	Dy_int +=Dy;
 	Fdes_z = altitude_control+pm.m*(gravity+des_acc_z);
 
-	Fdes_x = -pm.kp_xy*Dx-pm.kd_xy*Dx_rate-pm.ki_xy*Dx_int-pm.kd_pq*rate[1]-pm.kp_pq*eula_b;
-	Fdes_y = -pm.kp_xy*Dy-pm.kd_xy*Dy_rate-pm.ki_xy*Dy_int-pm.kd_pq*rate[0]-pm.kp_pq*eula_a;
+	Fdes_x = -pm.kp_xy*Dx-pm.kd_xy*Dx_rate-pm.ki_xy*Dx_int-pm.kd_pq*rate[1]-pm.kp_pq*orien[1];
+	Fdes_y = -pm.kp_xy*Dy-pm.kd_xy*Dy_rate-pm.ki_xy*Dy_int-pm.kd_pq*rate[0]-pm.kp_pq*orien[0];
 	Dyaw_rate = twist_ang_w[2];
 	Dyaw = eula_c-des_yaw;
 	Dyaw_int +=Dyaw;
