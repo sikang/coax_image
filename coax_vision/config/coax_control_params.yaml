@@ -31,7 +31,7 @@ yawcontrol:
   proportional: 0.009
   differential: 0.002
   integration: 0.0002
-
+  distance: 1.0
 pitchcontrol:
   proportional: -0.1
   differential: 0.01

@@ -97,6 +97,7 @@ struct param {
 	double noise_y;
 	double noise_z;
   double center_z;
+  double y_dis;
  };
 
 
@@ -234,7 +235,7 @@ private:
 	int initial_vicon;
 	double initial_time;
 	double initial_x,initial_y,initial_z;
-	double initial_hrange;
+	double initial_r,initial_l,y_dis,sensor_yaw;
 	double initial_roll;
 	double initial_pitch;
 	double initial_yaw;
@@ -263,22 +264,22 @@ private:
   double R1,R2;
 	double Q1, Q2, Q3, Q4, Q5, Q6;
 
-	double hrange_sum,gravity_sum;
+	double hrange_sum_r,hrange_sum_l,gravity_sum;
 	double hrange_n,gravity_n;
 	double grav;
   
-	double nby;
+	double nby_r,nby_l;
   double nbz;
 	 
 	Eigen::Vector3f orien;
 	Eigen::Vector3f rate;
 	Eigen::Vector3f rate_sum;
-	Eigen::Vector3f state_y;
+	Eigen::Vector3f left_y,right_y;
 	Eigen::Vector3f state_z;
-	Eigen::Matrix3f P_y,P_z;
+	Eigen::Matrix3f P_y_r,P_y_l,P_z;
 	Eigen::Matrix3f Qy;
 	Eigen::Matrix3f Qz;
-  double y1,y2,dis_y;
+  double y1,y2;
 	Eigen::Vector3f hrange;
 
 	coax_msgs::viconControl vicon_control;	
