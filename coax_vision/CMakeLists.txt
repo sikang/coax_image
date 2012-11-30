@@ -51,6 +51,7 @@ rosbuild_add_executable(test_control
 													src/test_control.cpp 
 												  src/VisionFeedback.cpp
 													src/CoaxFilter.cpp)
+rosbuild_add_executable(img_listener src/img_listener.cpp)
 #rosbuild_add_executable(CoaxVisionControl 
 #													src/CoaxVisionControl.cpp 
 #													src/VisionFeedback.cpp

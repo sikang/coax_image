@@ -8,6 +8,7 @@
 #include <ros/ros.h>
 #include <coax_msgs/CoaxState.h>
 #include <coax_msgs/CoaxConfigureControl.h>
+#include <coax_msgs/imgState.h>
 #include <math.h>
 #include <com/sbapi.h>
 #include <CoaxVisionControl.h>
@@ -61,7 +62,7 @@ CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
 ,altitude_des(0.0)
 ,stage(0),initial_pos(0),initial_position(0),initial_orien(0),flag_hrange(0),initial_vicon(0),yaw_init(0),initial_sonar(0),rate_yaw_sum(0.0),rate_yaw_n(0),des_pos_x(0.0),des_pos_y(0.0),des_pos_z(0.04)
 ,des_acc_z(0.0),des_pos_x_origin(0.0),des_pos_y_origin(0.0)
-,hrange_sum_r(0.0),hrange_sum_l(0.0),gravity_sum(0.0),hrange_n(0),gravity_n(0),nby_r(0.0),nby_l(0.0),nbz(0.0),y1(0.0),y2(0.0)
+,hrange_sum_r(0.0),hrange_sum_l(0.0),gravity_sum(0.0),hrange_n(0),gravity_n(0),nby_r(0.0),nby_l(0.0),nbz(0.0),y1(0.0),y2(0.0),stop_flag(0)
 {  
 	set_nav_mode.push_back(node.advertiseService("set_nav_mode", &CoaxVisionControl::setNavMode, this));
 	set_control_mode.push_back(node.advertiseService("set_control_mode", &CoaxVisionControl::setControlMode, this));
@@ -345,6 +346,7 @@ void CoaxVisionControl::viconCallback(const nav_msgs::Odometry::ConstPtr & vicon
   global_x = global_x-initial_x;
 	global_y = global_y-initial_y;
 
+
   twist_x=vicon->twist.twist.linear.x;
 	twist_y=vicon->twist.twist.linear.y;
   twist_z=vicon->twist.twist.linear.z;
@@ -404,11 +406,6 @@ void CoaxVisionControl::StateCallback(const coax_msgs::CoaxState::ConstPtr & msg
 if(hrange[2]<2.3){ 
 	y2 = cos(eula_c)*cos(orien[0])*(-0.3*hrange[2]*hrange[2]*hrange[2]+1.4638*hrange[2]*hrange[2]-2.5511*hrange[2]+1.8725)-initial_r;
 	y1 = cos(eula_c)*cos(orien[0])*(-0.3*hrange[1]*hrange[1]*hrange[1]+1.4638*hrange[1]*hrange[1]-2.5511*hrange[1]+1.8725)-initial_l;
-  t = y_dis/(y_dis+left_y[0]+right_y[0]);
-	if (t>1){
-		t = 1;
-	}
-	sensor_yaw = acos(t);
 }
 else if(hrange[2]>=2.3){
 	y2 = 0;
@@ -524,16 +521,18 @@ bool CoaxVisionControl::setRawControl(double motor1, double motor2, double servo
 		servo_pitch = -1;
 	else
 		servo_pitch = servo2;
-
+if(stop_flag==0){
 	raw_control.motor1 = motor_up;
 	raw_control.motor2 = motor_lo;
 	raw_control.servo1 = servo_roll;
 	raw_control.servo2 = servo_pitch;
+}
 if(stage == 3&&state_z[0]<0.1){
 	raw_control.motor1 = 0;
 	raw_control.motor2 = 0;
 	raw_control.servo1 = 0;
 	raw_control.servo2 = 0;
+	stop_flag = 1;
 }
 	raw_control_pub.publish(raw_control);
 	previous = current;
@@ -635,7 +634,7 @@ void CoaxVisionControl::set_hover(void){
 	if(initial_pos==0)
 	{
 		des_pos_x = global_x;
-		des_pos_y = 0;
+		des_pos_y = global_y;
 		des_pos_z = pm.center_z;
 	  des_vel_x = 0;
 		des_vel_y = 0;
@@ -646,7 +645,7 @@ void CoaxVisionControl::set_hover(void){
 	  gravity = gravity_sum/gravity_n;
 		initial_pos = 1;
 		initial_time = ros::Time::now().toSec();
-		std::cout<<"gravity:"<<gravity<<" hrange:"<<initial_r<<std::endl;
+		std::cout<<"des_x: "<<des_pos_x<<" des_y:"<<des_pos_y<<std::endl;
 		}
   
 //	des_pos_z = rpyt_rc[3]-pm.des_pos_z;
@@ -803,7 +802,7 @@ void CoaxVisionControl::stabilizationControl(void) {
 		Dx = -pm.Dx_max;
 	}
 
-	Dy = right_y[0]-des_pos_y;
+	Dy = global_y-des_pos_y;
 	if(Dy>pm.Dy_max){
 		Dy = pm.Dy_max;
     
@@ -812,7 +811,7 @@ void CoaxVisionControl::stabilizationControl(void) {
 		Dy = -pm.Dy_max;
 	}
 	Dx_rate = twist_x-des_vel_x;
-	Dy_rate = right_y[1]-des_vel_y;
+	Dy_rate = twist_y-des_vel_y;
 	Dx_int +=Dx;
 	Dy_int +=Dy;
 	Fdes_z = altitude_control+pm.m*(gravity+des_acc_z);

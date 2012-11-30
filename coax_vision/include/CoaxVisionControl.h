@@ -280,6 +280,7 @@ private:
 	Eigen::Matrix3f Qy;
 	Eigen::Matrix3f Qz;
   double y1,y2;
+	int stop_flag;
 	Eigen::Vector3f hrange;
 
 	coax_msgs::viconControl vicon_control;	
