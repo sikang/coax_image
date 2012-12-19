@@ -30,8 +30,6 @@
 struct param {
 	double motor_const1;
 	double motor_const2;
-	double servo1_const;
-	double servo2_const;
 	double yaw_coef1;
 	double yaw_coef2;
 	double thr_coef1;
@@ -73,8 +71,6 @@ struct param {
 	double kd_pq;
 	double k_roll;
 	double k_pitch;
-	double kp_imgyaw;
-	double kp_imgroll;
   double des_pos_z;
 	double des_vel_z; 
 	double des_acc_z;
@@ -85,7 +81,6 @@ struct param {
 	double Dy_max;
   double Ixx;
 	double Iyy;
-  double drifting;
   double R1;
 	double R2;
 	double Q1;
@@ -94,10 +89,14 @@ struct param {
 	double Q4;
 	double Q5;
 	double Q6;
+  double Ryaw;
+	double Qyaw1;
+	double Qyaw2;
+  double noise_x;
 	double noise_y;
 	double noise_z;
+	double noise_yaw;
   double center_z;
-  double y_dis;
  };
 
 
@@ -118,13 +117,14 @@ class CoaxVisionControl : public VisionFeedback, public KF
 	bool setControlMode(coax_vision::SetControlMode::Request &req, coax_vision::SetControlMode::Response &out);
   void viconCallback(const nav_msgs::Odometry::ConstPtr & vicon);
 	void StateCallback(const coax_msgs::CoaxState::ConstPtr & msg);
-  void set_hover(void);
+  void imgCallback(const coax_msgs::imgState::ConstPtr & img);
+	void set_hover(void);
 	void set_localize(void);
 	void set_landing(void);
 	void stabilizationControl(void);
 	void visionControl(void);
 	bool rotorReady(void);
-	void controlPublisher(size_t rate);
+	void controlPublisher(size_t rate_t);
 	
 	bool setRawControl(double motor_up,double motor_lo, double servo_ro,double servo_pi);
  // ros::Subscriber vicon_state_sub;
@@ -137,7 +137,7 @@ private:
   
 	ros::Subscriber vicon_state_sub;	
 	ros::Subscriber coax_state_sub;
-
+  ros::Subscriber img_state_sub;
 	ros::Publisher raw_control_pub;
 	ros::Publisher vision_control_pub;
   ros::Publisher vicon_state_pub;
@@ -235,7 +235,7 @@ private:
 	int initial_vicon;
 	double initial_time;
 	double initial_x,initial_y,initial_z;
-	double initial_r,initial_l,y_dis,sensor_yaw;
+	double initial_r,initial_l,y_dis;
 	double initial_roll;
 	double initial_pitch;
 	double initial_yaw;
@@ -261,26 +261,28 @@ private:
 
 	double sonar_z;
 
-  double R1,R2;
-	double Q1, Q2, Q3, Q4, Q5, Q6;
+  double R1,R2,Ryaw;
 
 	double hrange_sum_r,hrange_sum_l,gravity_sum;
 	double hrange_n,gravity_n;
 	double grav;
   
-	double nby_r,nby_l;
-  double nbz;
+	double nbx,nby;
+  double nbz,nbyaw;
 	 
 	Eigen::Vector3f orien;
 	Eigen::Vector3f rate;
 	Eigen::Vector3f rate_sum;
-	Eigen::Vector3f left_y,right_y;
+	Eigen::Vector3f state_x,state_y;
 	Eigen::Vector3f state_z;
-	Eigen::Matrix3f P_y_r,P_y_l,P_z;
-	Eigen::Matrix3f Qy;
-	Eigen::Matrix3f Qz;
-  double y1,y2;
+	Eigen::Vector3f state_yaw;
+	Eigen::Matrix3f P_x,P_y,P_z;
+	Eigen::Matrix3f P_yaw;
+	Eigen::Matrix3f Qy,Qz;
+	Eigen::Matrix3f Qyaw;
+	double img_yaw,img_x,img_y;
 	int stop_flag;
+	
 	Eigen::Vector3f hrange;
 
 	coax_msgs::viconControl vicon_control;	

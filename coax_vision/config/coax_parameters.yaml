@@ -1,4 +1,4 @@
-mass: 0.356
+mass: 0.358
 
 inertia:
   Ixx: 1.837e-3
@@ -6,8 +6,8 @@ inertia:
   Izz: 2.7786e-4
 
 offset:
-  roll: -0.06
-  pitch: 0.15
+  roll: -0.0339
+  pitch: 0.09
   upper: 0.165
   lower: 0.103
 

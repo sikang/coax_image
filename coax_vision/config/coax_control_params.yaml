@@ -8,29 +8,29 @@ altitude:
   base: 0.049
 
 altitudecontrol:
- xyproportional: 1.8
- xydifferential: 1.2
- xyintegration: 0.0
- kp_pq: 0.1
- kd_pq: 0.06
- k_roll: 0.45
- k_pitch: 0.45
+ xyproportional: 0.4
+ xydifferential: 0.5
+ xyintegration: 0.000
+ kp_pq: 0.0
+ kd_pq: 0.05
+ k_roll: 0.6
+ k_pitch: 0.6
  proportional: 2.0
  differential: 1.0
  integration: 0.01
 
 desired:
  des_pos_z: 0.6
- des_vel_z: 0.1
+ des_vel_z: 0.15
  des_acc_z: 0.1
  x_distance: 2.0
  y_distance: 0.0
  Dx_max: 0.2
  Dy_max: 0.2
 yawcontrol:
-  proportional: 0.009
-  differential: 0.002
-  integration: 0.0002
+  proportional: 0.01
+  differential: 0.003
+  integration: 0.000
   distance: 1.0
 pitchcontrol:
   proportional: -0.1
@@ -50,12 +50,6 @@ rollrccoef:
 pitchrccoef:
   coef: 0.0
 
-rollconst:
-  const: -0.1185
-
-pitchconst:
-  const: -0.0450
-
 throttlecoef:
   coef1: 0.52
   coef2: 0.52
@@ -69,8 +63,13 @@ filter:
  Q4: 0.0004
  Q5: 0.0025
  Q6: 0.09
+ Ryaw: 0.001
+ Qyaw1: 0.0004
+ Qyaw2: 0.0025
+ noise_x: 0.02
  noise_y: 0.02
  noise_z: 0.02
+ noise_yaw: 0.1
 center:
   z: 0.04
 yawcoef:
