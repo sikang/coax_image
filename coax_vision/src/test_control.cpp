@@ -19,8 +19,7 @@
 #endif
 
 CoaxVisionControl::CoaxVisionControl(ros::NodeHandle &node)
-:VisionFeedback(node), KF(node)
-
+:VisionFeedback(node),KF(node)
 ,reach_nav_state(node.serviceClient<coax_msgs::CoaxReachNavState>("reach_nav_state"))
 ,configure_comm(node.serviceClient<coax_msgs::CoaxConfigureComm>("configure_comm"))
 ,configure_control(node.serviceClient<coax_msgs::CoaxConfigureControl>("configure_control"))
@@ -114,10 +113,6 @@ CoaxVisionControl::~CoaxVisionControl() {}
 void CoaxVisionControl::loadParams(ros::NodeHandle &n) {
 	n.getParam("motorconst/const1",pm.motor_const1);
 	n.getParam("motorconst/const2",pm.motor_const2);
-	n.getParam("yawcoef/coef1",pm.yaw_coef1);
-	n.getParam("yawcoef/coef2",pm.yaw_coef2);
-	n.getParam("throttlecoef/coef1",pm.thr_coef1);
-	n.getParam("throttlecoef/coef2",pm.thr_coef2);
 	n.getParam("rollrccoef/coef",pm.r_rc_coef);
 	n.getParam("pitchrccoef/coef",pm.p_rc_coef);
 	n.getParam("yawcontrol/proportional",pm.kp_yaw);
@@ -577,7 +572,7 @@ if(stage == 3&&state_z[0]<0.05){
 	if(dt>10){
 		dt=0.02;
 	}
- 
+/* 
 	vicon_state.x=global_x;
 	vicon_state.y=global_y;
 	vicon_state.z=global_z;
@@ -598,7 +593,7 @@ if(stage == 3&&state_z[0]<0.05){
 	vicon_state.orien_yaw = state_yaw[0];
 	
 	vicon_state_pub.publish(vicon_state);
-
+*/
 	return 1;
 }
 
@@ -979,7 +974,7 @@ int main(int argc, char **argv) {
 	control.loadParams(nh);
 	ros::Duration(1.5).sleep(); 
 
-	control.configureComm(100, SBS_MODES | SBS_BATTERY | SBS_GYRO | SBS_ACCEL | SBS_CHANNELS | SBS_RPY | SBS_ALTITUDE_ALL |SBS_ALL);
+	control.configureComm(100, SBS_MODES|SBS_MAGNETO | SBS_BATTERY | SBS_GYRO | SBS_ACCEL | SBS_CHANNELS | SBS_RPY | SBS_ALTITUDE_ALL |SBS_ALL);
 	// control.setTimeout(500, 5000);
 
 	control.configureControl(SB_CTRL_MANUAL, SB_CTRL_MANUAL, SB_CTRL_MANUAL, SB_CTRL_MANUAL);

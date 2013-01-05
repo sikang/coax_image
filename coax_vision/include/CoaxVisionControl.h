@@ -18,25 +18,17 @@
 #include <coax_msgs/CoaxReachNavState.h>
 #include <coax_msgs/CoaxConfigureComm.h>
 #include <coax_msgs/CoaxSetTimeout.h>
-#include <sstream>
-#include <fstream>
 #include <coax_vision/SetNavMode.h>
 #include <coax_vision/SetControlMode.h>
 #include <coax_msgs/viconState.h>
 #include <coax_msgs/viconControl.h>
 #include <VisionFeedback.h>
 #include <CoaxFilter.h>
-
 struct param {
 	double motor_const1;
 	double motor_const2;
-	double yaw_coef1;
-	double yaw_coef2;
-	double thr_coef1;
-	double thr_coef2;
 	double r_rc_coef;
 	double p_rc_coef;
-  double k;
   
 	double kT_up;
 	double kT_lo;
