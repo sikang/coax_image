@@ -1,0 +1,36 @@
+<launch>
+    <node pkg="nodelet"
+		      type="nodelet"
+					name="camera_nodelet_manager"
+					args="manager"/>
+    <node pkg="nodelet"
+		      type="nodelet"
+					name="camera1394_nodelet"
+					args="load camera1394/driver camera_nodelet_manager">			
+          <rosparam file="$(find coax_vision)/config/pointGrey2001.yaml"/>
+				  <remap from="/camera/image_raw" to="/image"/>
+					</node>
+    <node pkg="coax_vision"
+		      name="contour_detect"
+					type="contour_detect"
+					output ="screen"/>
+
+
+    <node pkg="coax_server"
+          name="coax"
+          type="coax_server"
+      	  output="screen"
+          args="/dev/ttyO0">
+      <remap from="/coax_server/state" to="/state"/>
+
+      <remap from="/coax_server/control" to="/control"/>
+      <remap from="/coax_server/rawcontrol" to="/rawcontrol"/>
+
+      <remap from="/coax_server/reach_nav_state" to="/reach_nav_state"/>
+      <remap from="/coax_server/configure_comm" to="/configure_comm"/>
+			<remap from="/coax_server/configure_control" to="/configure_control"/>
+      <remap from="/coax_server/set_timeout" to="/set_timeout"/>
+    </node>
+
+	        
+</launch>

@@ -10,8 +10,9 @@ using namespace cv;
 const int r = 4;
 int initial_flag=0;
 double t1=0,t2=0,dt=0;
-const int xc = 80,yc=60;
+const int xc = 320/r,yc=240/r;
 double yaw=0,dis_x=0,dis_y=0;
+const int thresold = 10;
 ros::Publisher img_pub;
 ros::Publisher img_state_pub;
 Mat resize_img,edge;
@@ -22,10 +23,11 @@ void stateCallback(const sensor_msgs::Image::ConstPtr& msg)
 //		t1 = ros::Time::now().toSec();
   coax_msgs::imgState image_state;
 	sensor_msgs::Image out_img;
-  int h,w;
-	int x[3]={0,0,0};
-	int y[3]={0,0,0};
-	
+  int h,w,match;
+  static int x[6]={0,0,0,0,0,0};
+	static int y[6]={0,0,0,0,0,0};
+  static int previous_x[6] = {0,0,0,0,0,0}, current_x[6] = {0,0,0,0,0,0};
+	static int previous_y[6] = {0,0,0,0,0,0}, current_y[6] = {0,0,0,0,0,0};	
 	const Mat raw_img(msg->height,msg->width,CV_8UC1,(void*)(&msg->data[0]));
 	out_img.header.stamp = ros::Time::now();
 	out_img.header.frame_id = "out_img";
@@ -36,45 +38,64 @@ void stateCallback(const sensor_msgs::Image::ConstPtr& msg)
 	out_img.step = msg->width/r;
 
 
-	resize(raw_img,edge,Size(),1.0/r,1.0/r,INTER_LINEAR);	
-//	Canny(resize_img,edge,100,300,3);
-	HoughCircles(edge,circles,CV_HOUGH_GRADIENT,1,15,100,40);
-
-if(circles.size()==2&&initial_flag ==0){
+	resize(raw_img,resize_img,Size(),1.0/r,1.0/r,INTER_LINEAR);	
+	Canny(resize_img,edge,100,300,3);
+	HoughCircles(edge,circles,CV_HOUGH_GRADIENT,1,20,100,35);
+/*
+if(circles.size()==6&&initial_flag ==0){
     initial_flag = 1;
+		for(int i=0;i<circles.size();i++){
+			x[i] = cvRound(circles[i][0]);
+			y[i] = cvRound(circles[i][1]);
+			Point center(x[i],y[i]);
+			//	int radius = cvRound(circles[i][2]);
+			circle(edge,center,1,Scalar(255),-1,8,0);
+			//		circle(edge,center,radius,Scalar(255),1,8,0);
+      previous_x[i]=x[i];
+			previous_y[i]=y[i];
+		}
+	ROS_INFO("Initialization success!");
+
 }
-else if(circles.size()==2&&initial_flag==1){
-	for(int i=0;i<circles.size();i++){
+*/
+if(circles.size()>=2){
+  double dis[6] = {0,0,0,0,0,0};
+	match = 0;
+		for(int i=0;i<circles.size();i++){
     x[i] = cvRound(circles[i][0]);
 		y[i] = cvRound(circles[i][1]);
+ 	 int radius = cvRound(circles[i][2]);
+    if (radius<12){
+		for(int j=0;j<circles.size();j++){
+			dis[j]=sqrt((x[i]-previous_x[j])*(x[i]-previous_x[j])+(y[i]-previous_y[j])*(y[i]-previous_y[j]));
+
+			if(dis[j]<thresold&&match==0){
+         current_x[j]=x[i];
+				 current_y[j]=y[i];
+				 match=1;
+			}
+		}
+    if(match==0){
+			ROS_WARN("bad circle detected,dis:[%f],[%f],[%f],[%f],[%f],[%f]",dis[0],dis[1],dis[2],dis[3],dis[4],dis[5]);
+		}
+		else if(match==1){ 
 		Point center(x[i],y[i]);
-	//	int radius = cvRound(circles[i][2]);
     circle(edge,center,1,Scalar(255),-1,8,0);
-//		circle(edge,center,radius,Scalar(255),1,8,0);
-      		
-	}
-	dis_y = (double) -(x[0]+x[1])/2+xc;
-  dis_x = (double) -(y[0]+y[1])/2+yc;
- 
+   	circle(edge,center,radius,Scalar(255),1,8,0);
+		}
+		}
+		else if(radius>=12){
+    Point center(x[i],y[i]);
+    circle(edge,center,1,Scalar(255),-1,8,0);
+   	circle(edge,center,radius,Scalar(255),1,8,0);
 
-	if (y[0]<y[1]){
-	  int temp_y = y[0];
-		int temp_x = x[0];
-		y[0]=y[1];
-		x[0]=x[1];
-		y[1]=temp_y;
-		x[1]=temp_x;
+		ROS_WARN("radius:[%i], number: [%i]",radius,circles.size());      		
 	}
-  yaw = atan((double)(x[1]-x[0])/(y[0]-y[1])); 
+ }
 
-  image_state.x = dis_x;
-	image_state.y = dis_y;
 	image_state.theta = yaw;
 	img_state_pub.publish(image_state);
 	
-}
-else if(circles.size()>=3){
-	ROS_WARN("Bad circle detection..[%i]",circles.size());
 }
 else if(initial_flag ==0){
  image_state.x = dis_x;

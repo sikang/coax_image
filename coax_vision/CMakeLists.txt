@@ -51,6 +51,7 @@ rosbuild_gensrv()
 #													src/onboard_control.cpp)
 rosbuild_add_executable(img_listener src/img_listener.cpp)
 rosbuild_add_executable(circle_detect src/circle_detect.cpp)
+rosbuild_add_executable(contour_detect src/contour_detect.cpp)
 rosbuild_add_executable(test_control 
 													src/test_control.cpp
 													src/VisionFeedback.cpp
